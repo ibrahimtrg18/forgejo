@@ -1,0 +1,67 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: forgejo-pvc
+  namespace: forgejo
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: forgejo
+  namespace: forgejo
+  labels:
+    app: forgejo
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: forgejo
+  template:
+    metadata:
+      labels:
+        app: forgejo
+    spec:
+      containers:
+        - name: forgejo
+          image: codeberg.org/forgejo/forgejo:13
+          ports:
+            - containerPort: 3000
+            - containerPort: 22
+          envFrom:
+            - secretRef:
+                name: forgejo-secret
+          volumeMounts:
+            - name: forgejo-storage
+              mountPath: /data
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+      volumes:
+        - name: forgejo-storage
+          persistentVolumeClaim:
+            claimName: forgejo-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: forgejo
+  namespace: forgejo
+spec:
+  selector:
+    app: forgejo
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
